@@ -1,0 +1,17 @@
+[package]
+name = "modmap"
+version = "1.0.0"
+edition = "2024"
+rust-version = "1.92.0"
+description = "Universal module map schema for codebase structure representation"
+license = "MIT"
+keywords = ["schema", "module-map", "codebase-analysis", "multi-agent"]
+categories = ["data-structures", "development-tools"]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+schemars = { version = "1.2", features = ["chrono04"] }
+thiserror = "2.0"
+semver = { version = "1.0", features = ["serde"] }
+chrono = { version = "0.4", features = ["serde"] }
