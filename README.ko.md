@@ -95,7 +95,7 @@ println!("모듈: {}", map.modules.len());
 
 ```
 ModuleMap
-├── schema_version: "3.0.0"
+├── schema_version: "1.0.0"
 ├── generator: GeneratorInfo
 ├── project: ProjectMetadata
 │   ├── name, description, repository
@@ -269,7 +269,7 @@ use modmap::{SchemaRegistry, SchemaError};
 let registry = SchemaRegistry::new();
 
 // 현재 버전
-println!("스키마 버전: {}", registry.version());  // 3.x.x
+println!("스키마 버전: {}", registry.version());  // 1.x.x
 
 // 로드 및 검증
 match registry.load_module_map(&json) {

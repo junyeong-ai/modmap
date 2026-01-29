@@ -72,20 +72,20 @@ mod tests {
     #[test]
     fn test_registry_creation() {
         let registry = SchemaRegistry::new();
-        assert_eq!(registry.version().major, 3);
+        assert_eq!(registry.version().major, 1);
     }
 
     #[test]
     fn test_version_validation_success() {
         let registry = SchemaRegistry::new();
-        let data = serde_json::json!({ "schema_version": "3.0.0" });
+        let data = serde_json::json!({ "schema_version": "1.0.0" });
         assert!(registry.validate_version(&data).is_ok());
     }
 
     #[test]
     fn test_version_validation_minor_difference() {
         let registry = SchemaRegistry::new();
-        let data = serde_json::json!({ "schema_version": "3.1.0" });
+        let data = serde_json::json!({ "schema_version": "1.1.0" });
         assert!(registry.validate_version(&data).is_ok());
     }
 

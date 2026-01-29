@@ -6,7 +6,7 @@ use crate::types::{
     ProjectType, TechStack, WorkspaceType,
 };
 
-pub const SCHEMA_VERSION: &str = "3.0.0";
+pub const SCHEMA_VERSION: &str = "1.0.0";
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ModuleMap {
@@ -435,13 +435,13 @@ mod tests {
         let map = ModuleMap::new(generator, project, modules, groups);
 
         let json = map.to_json().expect("serialization should succeed");
-        assert!(json.contains("\"schema_version\": \"3.0.0\""));
+        assert!(json.contains("\"schema_version\": \"1.0.0\""));
         assert!(json.contains("\"error-handling\""));
         assert!(json.contains("\"memory-leak\""));
 
         let parsed: ModuleMap =
             serde_json::from_str(&json).expect("deserialization should succeed");
-        assert_eq!(parsed.schema_version, "3.0.0");
+        assert_eq!(parsed.schema_version, "1.0.0");
         assert_eq!(parsed.modules[0].conventions.len(), 1);
     }
 }
