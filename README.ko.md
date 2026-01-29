@@ -2,6 +2,7 @@
 
 **코드베이스 구조 표현을 위한 범용 모듈 맵 스키마**
 
+[![CI](https://github.com/junyeong-ai/modmap/actions/workflows/ci.yml/badge.svg)](https://github.com/junyeong-ai/modmap/actions/workflows/ci.yml)
 [![Crates.io](https://img.shields.io/crates/v/modmap.svg)](https://crates.io/crates/modmap)
 [![Docs.rs](https://img.shields.io/docsrs/modmap)](https://docs.rs/modmap)
 [![Rust](https://img.shields.io/badge/rust-1.92%2B-orange.svg)](https://www.rust-lang.org)

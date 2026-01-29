@@ -5,6 +5,7 @@ edition = "2024"
 rust-version = "1.92.0"
 description = "Universal module map schema for codebase structure representation"
 license = "MIT"
+repository = "https://github.com/junyeong-ai/modmap"
 keywords = ["schema", "module-map", "codebase-analysis", "multi-agent"]
 categories = ["data-structures", "development-tools"]
 
