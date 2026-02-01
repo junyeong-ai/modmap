@@ -83,10 +83,14 @@ ModuleDependency::runtime("db")
 ModuleDependency::build("codegen")
 ModuleDependency::test("fixtures")
 
-// Builder pattern
+// Builder pattern - Core types
 TechStack::new("rust").with_version("1.92").with_framework(...)
 Convention::new("name", "pattern").with_rationale("why")
-Agent::new("analyzer").with_model(AgentModel::Haiku).with_tools(["Read", "Grep"])
+
+// Builder pattern - Plugin types (required params in new())
+Agent::new("name", "description", "prompt").with_model(AgentModel::Haiku)
+Rule::new("name", vec!["content"]).with_paths(vec!["**/*.rs"])
+Skill::new("name", "description", "body").with_tools(vec!["Bash"])
 
 // Serde attributes
 #[serde(default)]                              // Default on deserialize

@@ -96,12 +96,14 @@ println!("프로젝트: {}", manifest.project.project.name);
 ```rust
 use modmap::{Agent, AgentModel, AgentColor};
 
-let agent = Agent::new("code-reviewer")
-    .with_description("베스트 프랙티스를 위한 코드 리뷰")
-    .with_model(AgentModel::Haiku)
-    .with_color(AgentColor::Green)
-    .with_tools(vec!["Read".into(), "Grep".into(), "Glob".into()])
-    .with_instructions("보안과 성능에 집중하여 코드를 리뷰합니다.");
+let agent = Agent::new(
+    "code-reviewer",
+    "베스트 프랙티스를 위한 코드 리뷰",
+    "보안과 성능에 집중하여 코드를 리뷰합니다.",
+)
+.with_model(AgentModel::Haiku)
+.with_color(AgentColor::Green)
+.with_tools(vec!["Read".into(), "Grep".into(), "Glob".into()]);
 ```
 
 ### 규칙 (Rule)
@@ -109,10 +111,12 @@ let agent = Agent::new("code-reviewer")
 ```rust
 use modmap::{Rule, RuleCategory};
 
-let rule = Rule::new("rust-conventions")
-    .with_category(RuleCategory::Tech)
-    .with_globs(vec!["**/*.rs".into()])
-    .with_content("에러 전파에 `?` 연산자 사용. 제네릭보다 `impl Trait` 선호.");
+let rule = Rule::new(
+    "rust-conventions",
+    vec!["에러 전파에 `?` 연산자 사용.".into()],
+)
+.with_category(RuleCategory::Tech)
+.with_paths(vec!["**/*.rs".into()]);
 ```
 
 **카테고리별 규칙 우선순위:**
@@ -131,11 +135,13 @@ let rule = Rule::new("rust-conventions")
 ```rust
 use modmap::{Skill, SkillFile};
 
-let skill = Skill::new("deploy")
-    .with_description("프로덕션 배포")
-    .with_tools(vec!["Bash".into(), "Read".into()])
-    .with_instructions("구성된 CI/CD 파이프라인을 사용하여 배포합니다.")
-    .with_file(SkillFile::new("config.yaml", "env: production"));
+let skill = Skill::new(
+    "deploy",
+    "프로덕션 배포",
+    "구성된 CI/CD 파이프라인을 사용하여 배포합니다.",
+)
+.with_tools(vec!["Bash".into(), "Read".into()])
+.with_additional_file(SkillFile::new("config.yaml", "env: production"));
 ```
 
 ---
@@ -146,12 +152,15 @@ let skill = Skill::new("deploy")
 
 ```rust
 use modmap::{ProjectManifest, ModuleContext};
+use std::collections::HashMap;
 
 let manifest = ProjectManifest::new(module_map)
-    .with_module_context("auth", ModuleContext::new()
-        .with_rules(vec!["security-rules".into()])
-        .with_skills(vec!["auth-debug".into()]));
-```
+    .with_modules(HashMap::from([(
+        "auth".to_string(),
+        ModuleContext::new()
+            .with_rules(vec!["security-rules".into()])
+            .with_skills(vec!["auth-debug".into()]),
+    )]));
 
 ---
 

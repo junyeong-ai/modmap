@@ -96,12 +96,14 @@ println!("Project: {}", manifest.project.project.name);
 ```rust
 use modmap::{Agent, AgentModel, AgentColor};
 
-let agent = Agent::new("code-reviewer")
-    .with_description("Reviews code for best practices")
-    .with_model(AgentModel::Haiku)
-    .with_color(AgentColor::Green)
-    .with_tools(vec!["Read".into(), "Grep".into(), "Glob".into()])
-    .with_instructions("Review code focusing on security and performance.");
+let agent = Agent::new(
+    "code-reviewer",
+    "Reviews code for best practices",
+    "Review code focusing on security and performance.",
+)
+.with_model(AgentModel::Haiku)
+.with_color(AgentColor::Green)
+.with_tools(vec!["Read".into(), "Grep".into(), "Glob".into()]);
 ```
 
 ### Rule
@@ -109,10 +111,12 @@ let agent = Agent::new("code-reviewer")
 ```rust
 use modmap::{Rule, RuleCategory};
 
-let rule = Rule::new("rust-conventions")
-    .with_category(RuleCategory::Tech)
-    .with_globs(vec!["**/*.rs".into()])
-    .with_content("Use `?` operator for error propagation. Prefer `impl Trait` over generics.");
+let rule = Rule::new(
+    "rust-conventions",
+    vec!["Use `?` operator for error propagation.".into()],
+)
+.with_category(RuleCategory::Tech)
+.with_paths(vec!["**/*.rs".into()]);
 ```
 
 **Rule Priority by Category:**
@@ -131,11 +135,13 @@ let rule = Rule::new("rust-conventions")
 ```rust
 use modmap::{Skill, SkillFile};
 
-let skill = Skill::new("deploy")
-    .with_description("Deploy to production")
-    .with_tools(vec!["Bash".into(), "Read".into()])
-    .with_instructions("Deploy using the configured CI/CD pipeline.")
-    .with_file(SkillFile::new("config.yaml", "env: production"));
+let skill = Skill::new(
+    "deploy",
+    "Deploy to production",
+    "Deploy using the configured CI/CD pipeline.",
+)
+.with_tools(vec!["Bash".into(), "Read".into()])
+.with_additional_file(SkillFile::new("config.yaml", "env: production"));
 ```
 
 ---
@@ -146,12 +152,15 @@ let skill = Skill::new("deploy")
 
 ```rust
 use modmap::{ProjectManifest, ModuleContext};
+use std::collections::HashMap;
 
 let manifest = ProjectManifest::new(module_map)
-    .with_module_context("auth", ModuleContext::new()
-        .with_rules(vec!["security-rules".into()])
-        .with_skills(vec!["auth-debug".into()]));
-```
+    .with_modules(HashMap::from([(
+        "auth".to_string(),
+        ModuleContext::new()
+            .with_rules(vec!["security-rules".into()])
+            .with_skills(vec!["auth-debug".into()]),
+    )]));
 
 ---
 
