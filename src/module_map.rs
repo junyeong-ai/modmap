@@ -16,6 +16,8 @@ pub struct ModuleMap {
     pub modules: Vec<Module>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub groups: Vec<ModuleGroup>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub domains: Vec<Domain>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dependency_graph: Option<DependencyGraph>,
     pub generated_at: chrono::DateTime<chrono::Utc>,
@@ -111,6 +113,45 @@ pub struct ModuleGroup {
     pub boundary_rules: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub leader_module: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_group_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub domain_id: Option<String>,
+    #[serde(default)]
+    pub depth: u8,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct Domain {
+    pub id: String,
+    pub name: String,
+    pub group_ids: Vec<String>,
+    pub responsibility: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub boundary_rules: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub interfaces: Vec<DomainInterface>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct DomainInterface {
+    pub name: String,
+    #[serde(default)]
+    pub interface_type: InterfaceType,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub consumers: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum InterfaceType {
+    #[default]
+    Api,
+    Event,
+    SharedLibrary,
+    Database,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
@@ -148,9 +189,15 @@ impl ModuleMap {
             project,
             modules,
             groups,
+            domains: Vec::new(),
             dependency_graph: None,
             generated_at: chrono::Utc::now(),
         }
+    }
+
+    pub fn with_domains(mut self, domains: Vec<Domain>) -> Self {
+        self.domains = domains;
+        self
     }
 
     pub fn with_dependency_graph(mut self, graph: DependencyGraph) -> Self {
@@ -166,19 +213,49 @@ impl ModuleMap {
         self.groups.iter().find(|g| g.id == group_id)
     }
 
+    pub fn find_domain(&self, domain_id: &str) -> Option<&Domain> {
+        self.domains.iter().find(|d| d.id == domain_id)
+    }
+
     pub fn find_group_containing(&self, module_id: &str) -> Option<&ModuleGroup> {
         self.groups
             .iter()
             .find(|g| g.module_ids.iter().any(|id| id == module_id))
     }
 
-    pub fn find_modules_in_group(&self, group_id: &str) -> Option<Vec<&Module>> {
-        self.find_group(group_id).map(|g| {
-            g.module_ids
-                .iter()
-                .filter_map(|id| self.find_module(id))
-                .collect()
-        })
+    pub fn find_domain_containing_group(&self, group_id: &str) -> Option<&Domain> {
+        self.domains
+            .iter()
+            .find(|d| d.group_ids.iter().any(|id| id == group_id))
+    }
+
+    pub fn find_modules_in_group(&self, group_id: &str) -> Vec<&Module> {
+        self.find_group(group_id)
+            .map(|g| {
+                g.module_ids
+                    .iter()
+                    .filter_map(|id| self.find_module(id))
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub fn find_groups_in_domain(&self, domain_id: &str) -> Vec<&ModuleGroup> {
+        self.find_domain(domain_id)
+            .map(|d| {
+                d.group_ids
+                    .iter()
+                    .filter_map(|id| self.find_group(id))
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub fn find_child_groups(&self, parent_group_id: &str) -> Vec<&ModuleGroup> {
+        self.groups
+            .iter()
+            .filter(|g| g.parent_group_id.as_deref() == Some(parent_group_id))
+            .collect()
     }
 
     pub fn to_json(&self) -> Result<String, serde_json::Error> {
@@ -201,6 +278,9 @@ impl ModuleGroup {
             responsibility: String::new(),
             boundary_rules: Vec::new(),
             leader_module: None,
+            parent_group_id: None,
+            domain_id: None,
+            depth: 0,
         }
     }
 
@@ -211,6 +291,66 @@ impl ModuleGroup {
 
     pub fn with_boundary_rules(mut self, rules: Vec<String>) -> Self {
         self.boundary_rules = rules;
+        self
+    }
+
+    pub fn with_domain(mut self, domain_id: impl Into<String>) -> Self {
+        self.domain_id = Some(domain_id.into());
+        self
+    }
+
+    pub fn with_parent(mut self, parent_group_id: impl Into<String>, depth: u8) -> Self {
+        self.parent_group_id = Some(parent_group_id.into());
+        self.depth = depth;
+        self
+    }
+}
+
+impl Domain {
+    pub fn new(id: impl Into<String>, name: impl Into<String>, group_ids: Vec<String>) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+            group_ids,
+            responsibility: String::new(),
+            boundary_rules: Vec::new(),
+            interfaces: Vec::new(),
+            owner: None,
+        }
+    }
+
+    pub fn with_responsibility(mut self, responsibility: impl Into<String>) -> Self {
+        self.responsibility = responsibility.into();
+        self
+    }
+
+    pub fn with_boundary_rules(mut self, rules: Vec<String>) -> Self {
+        self.boundary_rules = rules;
+        self
+    }
+
+    pub fn with_interfaces(mut self, interfaces: Vec<DomainInterface>) -> Self {
+        self.interfaces = interfaces;
+        self
+    }
+
+    pub fn with_owner(mut self, owner: impl Into<String>) -> Self {
+        self.owner = Some(owner.into());
+        self
+    }
+}
+
+impl DomainInterface {
+    pub fn new(name: impl Into<String>, interface_type: InterfaceType) -> Self {
+        Self {
+            name: name.into(),
+            interface_type,
+            consumers: Vec::new(),
+        }
+    }
+
+    pub fn with_consumers(mut self, consumers: Vec<String>) -> Self {
+        self.consumers = consumers;
         self
     }
 }
@@ -368,6 +508,71 @@ mod tests {
     }
 
     #[test]
+    fn test_domain_creation() {
+        let domain = Domain::new(
+            "identity",
+            "Identity Management",
+            vec!["auth-group".into(), "user-group".into()],
+        )
+        .with_responsibility("Handles all identity operations")
+        .with_boundary_rules(vec!["External access through API gateway only".into()])
+        .with_interfaces(vec![
+            DomainInterface::new("IdentityAPI", InterfaceType::Api)
+                .with_consumers(vec!["commerce".into()]),
+            DomainInterface::new("UserEvents", InterfaceType::Event),
+        ])
+        .with_owner("identity-team");
+
+        assert_eq!(domain.id, "identity");
+        assert_eq!(domain.group_ids.len(), 2);
+        assert_eq!(domain.interfaces.len(), 2);
+        assert_eq!(domain.owner, Some("identity-team".into()));
+    }
+
+    #[test]
+    fn test_hierarchical_grouping() {
+        let project = sample_project();
+        let modules = vec![
+            sample_module("auth-core"),
+            sample_module("oauth"),
+            sample_module("rbac"),
+        ];
+        let groups = vec![
+            ModuleGroup::new(
+                "authentication",
+                "Authentication",
+                vec!["auth-core".into(), "oauth".into()],
+            )
+            .with_domain("identity"),
+            ModuleGroup::new("authorization", "Authorization", vec!["rbac".into()])
+                .with_domain("identity"),
+        ];
+        let domains = vec![Domain::new(
+            "identity",
+            "Identity",
+            vec!["authentication".into(), "authorization".into()],
+        )];
+
+        let generator = GeneratorInfo::new("test", "1.0.0");
+        let map = ModuleMap::new(generator, project, modules, groups).with_domains(domains);
+
+        assert_eq!(map.domains.len(), 1);
+        assert!(map.find_domain("identity").is_some());
+        assert_eq!(map.find_groups_in_domain("identity").len(), 2);
+        assert!(map.find_domain_containing_group("authentication").is_some());
+    }
+
+    #[test]
+    fn test_nested_groups() {
+        let child_group =
+            ModuleGroup::new("oauth-providers", "OAuth Providers", vec!["google".into()])
+                .with_parent("authentication", 1);
+
+        assert_eq!(child_group.parent_group_id, Some("authentication".into()));
+        assert_eq!(child_group.depth, 1);
+    }
+
+    #[test]
     fn test_module_with_conventions_and_issues() {
         let module = sample_module_with_conventions("pipeline");
 
@@ -424,6 +629,33 @@ mod tests {
         let graph = map.dependency_graph.unwrap();
         assert_eq!(graph.edges.len(), 1);
         assert_eq!(graph.layers.len(), 2);
+    }
+
+    #[test]
+    fn test_serialization_with_domains() {
+        let project = sample_project();
+        let modules = vec![sample_module("auth")];
+        let groups = vec![
+            ModuleGroup::new("auth-group", "Auth Group", vec!["auth".into()])
+                .with_domain("identity"),
+        ];
+        let domains = vec![
+            Domain::new("identity", "Identity", vec!["auth-group".into()])
+                .with_interfaces(vec![DomainInterface::new("AuthAPI", InterfaceType::Api)]),
+        ];
+
+        let generator = GeneratorInfo::new("claudegen", "0.3.0");
+        let map = ModuleMap::new(generator, project, modules, groups).with_domains(domains);
+
+        let json = map.to_json().expect("serialization should succeed");
+        assert!(json.contains("\"domains\""));
+        assert!(json.contains("\"identity\""));
+        assert!(json.contains("\"domain_id\""));
+
+        let parsed: ModuleMap =
+            serde_json::from_str(&json).expect("deserialization should succeed");
+        assert_eq!(parsed.domains.len(), 1);
+        assert_eq!(parsed.domains[0].interfaces.len(), 1);
     }
 
     #[test]
