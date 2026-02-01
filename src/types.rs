@@ -110,8 +110,35 @@ impl EvidenceLocation {
         }
     }
 
+    pub fn file_level(file: impl Into<String>) -> Self {
+        Self {
+            file: file.into(),
+            start_line: 0,
+            end_line: 0,
+            start_column: None,
+            end_column: None,
+        }
+    }
+
+    pub fn from_optional_line(file: impl Into<String>, line: Option<u32>) -> Self {
+        match line {
+            Some(l) if l > 0 => Self::new(file, l),
+            _ => Self::file_level(file),
+        }
+    }
+
+    pub fn is_file_level(&self) -> bool {
+        self.start_line == 0 && self.end_line == 0
+    }
+
+    pub fn is_line_level(&self) -> bool {
+        self.start_line > 0
+    }
+
     pub fn to_reference(&self) -> String {
-        if self.end_line != self.start_line && self.end_line > 0 {
+        if self.is_file_level() {
+            self.file.clone()
+        } else if self.end_line != self.start_line && self.end_line > 0 {
             format!("{}:{}-{}", self.file, self.start_line, self.end_line)
         } else {
             format!("{}:{}", self.file, self.start_line)
