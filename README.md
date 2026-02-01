@@ -14,14 +14,10 @@ English | [한국어](README.ko.md)
 
 ## Overview
 
-`modmap` is a language-agnostic schema library for representing codebase structure. It provides standardized types for describing modules, dependencies, conventions, and known issues across any programming language or framework.
+`modmap` is a language-agnostic schema library for representing codebase structure. It provides standardized types for:
 
-### Use Cases
-
-- **Multi-agent systems**: Define domain boundaries for agent coordination
-- **Code analysis tools**: Structured output format for codebase analyzers
-- **Documentation generators**: Machine-readable module descriptions
-- **CI/CD pipelines**: Automated codebase structure validation
+1. **Codebase Analysis**: Modules, dependencies, conventions, known issues
+2. **Plugin System**: Agents, rules, skills for Claude Code plugins
 
 ---
 
@@ -29,8 +25,22 @@ English | [한국어](README.ko.md)
 
 ```toml
 [dependencies]
-modmap = "1.0"
+modmap = "1.1"
 ```
+
+---
+
+## Module Reference
+
+| Module | Description | Key Types |
+|--------|-------------|-----------|
+| `module_map` | Core schema | ModuleMap, Module, ModuleGroup, Domain |
+| `types` | Base types | DependencyType, Convention, KnownIssue, TechStack |
+| `manifest` | Project manifest | ProjectManifest, ModuleContext |
+| `agent` | Agent definitions | Agent, AgentModel, AgentColor |
+| `rule` | Rule definitions | Rule, RuleCategory |
+| `skill` | Skill definitions | Skill, SkillFile, ContextMode |
+| `registry` | Version validation | SchemaRegistry, SchemaError |
 
 ---
 
@@ -40,126 +50,116 @@ modmap = "1.0"
 
 ```rust
 use modmap::{
-    GeneratorInfo, ModuleMap, ModuleGroup, ProjectMetadata,
+    GeneratorInfo, ModuleMap, ProjectMetadata,
     TechStack, Module, ModuleMetrics, ModuleDependency,
 };
 
-// Define project metadata
-let project = ProjectMetadata::new("my-project", TechStack::new("rust").with_version("1.92"))
-    .with_description("Example project")
-    .with_total_files(50);
+let project = ProjectMetadata::new("my-project", TechStack::new("rust"))
+    .with_description("Example project");
 
-// Define modules
-let modules = vec![
-    Module {
-        id: "auth".into(),
-        name: "auth".into(),
-        paths: vec!["src/auth/".into()],
-        key_files: vec!["src/auth/mod.rs".into()],
-        dependencies: vec![ModuleDependency::runtime("db")],
-        dependents: vec!["api".into()],
-        responsibility: "User authentication and session management".into(),
-        primary_language: "rust".into(),
-        metrics: ModuleMetrics::new(0.85, 0.9, 0.3),
-        conventions: vec![],
-        known_issues: vec![],
-        evidence: vec![],
-    },
-];
+let modules = vec![Module {
+    id: "auth".into(),
+    name: "Authentication".into(),
+    paths: vec!["src/auth/".into()],
+    dependencies: vec![ModuleDependency::runtime("db")],
+    responsibility: "User authentication".into(),
+    ..Default::default()
+}];
 
-// Create module map
-let generator = GeneratorInfo::new("my-analyzer", "1.0.0");
-let map = ModuleMap::new(generator, project, modules, vec![]);
+let map = ModuleMap::new(
+    GeneratorInfo::new("analyzer", "1.0.0"),
+    project,
+    modules,
+    vec![],
+);
 
-// Serialize to JSON
 let json = map.to_json()?;
 ```
 
-### Loading with Version Validation
+### Loading with Manifest
 
 ```rust
 use modmap::SchemaRegistry;
 
 let registry = SchemaRegistry::new();
-let map = registry.load_module_map(&json_string)?;
+let manifest = registry.load(&json_string)?;
 
-println!("Project: {}", map.project.name);
-println!("Modules: {}", map.modules.len());
+println!("Project: {}", manifest.project.project.name);
 ```
 
 ---
 
-## Schema Structure
+## Plugin Types
 
-### Root Schema
-
-```
-ModuleMap
-├── schema_version: "1.0.0"
-├── generator: GeneratorInfo
-├── project: ProjectMetadata
-│   ├── name, description, repository
-│   ├── project_type: Application | Library | Service | Cli
-│   ├── workspace: WorkspaceInfo
-│   ├── tech_stack: TechStack
-│   ├── languages: Vec<DetectedLanguage>
-│   └── commands: ProjectCommands
-├── modules: Vec<Module>
-├── groups: Vec<ModuleGroup>
-├── dependency_graph: Option<DependencyGraph>
-└── generated_at: DateTime<Utc>
-```
-
-### Module
+### Agent
 
 ```rust
-pub struct Module {
-    pub id: String,
-    pub name: String,
-    pub paths: Vec<String>,
-    pub key_files: Vec<String>,
-    pub dependencies: Vec<ModuleDependency>,
-    pub dependents: Vec<String>,
-    pub responsibility: String,
-    pub primary_language: String,
-    pub metrics: ModuleMetrics,        // Flattened in JSON
-    pub conventions: Vec<Convention>,
-    pub known_issues: Vec<KnownIssue>,
-    pub evidence: Vec<EvidenceLocation>,
-}
+use modmap::{Agent, AgentModel, AgentColor};
+
+let agent = Agent::new("code-reviewer")
+    .with_description("Reviews code for best practices")
+    .with_model(AgentModel::Haiku)
+    .with_color(AgentColor::Green)
+    .with_tools(vec!["Read".into(), "Grep".into(), "Glob".into()])
+    .with_instructions("Review code focusing on security and performance.");
 ```
 
-### Module Metrics
+### Rule
 
 ```rust
-let metrics = ModuleMetrics::new(
-    0.85,  // coverage_ratio
-    0.9,   // value_score
-    0.3,   // risk_score
-);
+use modmap::{Rule, RuleCategory};
 
-// Priority calculation: value * 0.6 + risk * 0.4
-let priority = metrics.priority_score();  // 0.66
+let rule = Rule::new("rust-conventions")
+    .with_category(RuleCategory::Tech)
+    .with_globs(vec!["**/*.rs".into()])
+    .with_content("Use `?` operator for error propagation. Prefer `impl Trait` over generics.");
+```
+
+**Rule Priority by Category:**
+
+| Category | Priority | Trigger |
+|----------|----------|---------|
+| Project | 100 | Always inject |
+| Tech | 90 | By file extension |
+| Framework | 85 | By path/keywords |
+| Module | 80 | By module path |
+| Group | 70 | By member paths |
+| Domain | 60 | By keyword trigger |
+
+### Skill
+
+```rust
+use modmap::{Skill, SkillFile};
+
+let skill = Skill::new("deploy")
+    .with_description("Deploy to production")
+    .with_tools(vec!["Bash".into(), "Read".into()])
+    .with_instructions("Deploy using the configured CI/CD pipeline.")
+    .with_file(SkillFile::new("config.yaml", "env: production"));
 ```
 
 ---
 
-## Type Reference
+## Manifest
 
-### Enums
-
-| Type | Variants |
-|------|----------|
-| `WorkspaceType` | SinglePackage, Monorepo, Microservices, MultiPackage |
-| `ProjectType` | Application, Library, Service, Cli |
-| `DependencyType` | Runtime, Build, Test, Optional |
-| `IssueSeverity` | Critical, High, Medium, Low |
-| `IssueCategory` | Security, Performance, Correctness, Maintainability, Concurrency, Compatibility |
-
-### Dependency Factory Methods
+`ProjectManifest` wraps `ModuleMap` with additional metadata:
 
 ```rust
-ModuleDependency::new("module-id")       // Default (Runtime)
+use modmap::{ProjectManifest, ModuleContext};
+
+let manifest = ProjectManifest::new(module_map)
+    .with_module_context("auth", ModuleContext::new()
+        .with_rules(vec!["security-rules".into()])
+        .with_skills(vec!["auth-debug".into()]));
+```
+
+---
+
+## Core Types
+
+### Dependencies
+
+```rust
 ModuleDependency::runtime("database")    // Runtime dependency
 ModuleDependency::build("codegen")       // Build-time dependency
 ModuleDependency::test("fixtures")       // Test dependency
@@ -169,141 +169,48 @@ ModuleDependency::optional("cache")      // Optional dependency
 ### Convention & Known Issue
 
 ```rust
-use modmap::{Convention, KnownIssue, IssueSeverity, IssueCategory, EvidenceLocation};
+use modmap::{Convention, KnownIssue, IssueSeverity, IssueCategory};
 
-let convention = Convention::new("error-handling", "Use ? operator for propagation")
-    .with_rationale("Rust idiom for error handling")
-    .with_evidence(vec![EvidenceLocation::new("src/lib.rs", 42)]);
+let convention = Convention::new("error-handling", "Use ? operator")
+    .with_rationale("Rust idiom");
 
 let issue = KnownIssue::new(
     "race-condition",
     "Race condition in session refresh",
     IssueSeverity::High,
     IssueCategory::Concurrency,
-)
-.with_prevention("Use atomic CAS operations")
-.with_evidence(vec![EvidenceLocation::new_range("src/session.rs", 128, 145)]);
+);
 ```
 
 ### Tech Stack
 
 ```rust
-use modmap::{TechStack, FrameworkInfo, LibraryInfo};
+use modmap::{TechStack, FrameworkInfo};
 
 let stack = TechStack::new("rust")
     .with_version("1.92")
-    .with_framework(FrameworkInfo::new("tokio", "async runtime").with_version("1.0"))
-    .with_build_tool("cargo")
-    .with_test_framework("built-in")
-    .with_library(LibraryInfo::new("serde", "serialization"));
-```
-
-### Evidence Location
-
-```rust
-use modmap::EvidenceLocation;
-
-let single = EvidenceLocation::new("src/main.rs", 42);
-single.to_reference()  // "src/main.rs:42"
-
-let range = EvidenceLocation::new_range("src/lib.rs", 10, 20);
-range.to_reference()  // "src/lib.rs:10-20"
-```
-
----
-
-## Module Groups
-
-Group related modules with boundary rules:
-
-```rust
-use modmap::ModuleGroup;
-
-let group = ModuleGroup::new("core", "Core Domain", vec!["auth".into(), "db".into()])
-    .with_responsibility("Core business logic")
-    .with_boundary_rules(vec!["No direct CLI dependencies".into()]);
-```
-
----
-
-## Dependency Graph
-
-Optional architecture layer representation:
-
-```rust
-use modmap::{DependencyGraph, DependencyEdge, ArchitectureLayer, DependencyType};
-
-let graph = DependencyGraph {
-    edges: vec![
-        DependencyEdge {
-            from: "api".into(),
-            to: "auth".into(),
-            edge_type: DependencyType::Runtime,
-        },
-    ],
-    layers: vec![
-        ArchitectureLayer {
-            name: "presentation".into(),
-            modules: vec!["cli".into(), "api".into()],
-        },
-        ArchitectureLayer {
-            name: "domain".into(),
-            modules: vec!["auth".into(), "db".into()],
-        },
-    ],
-};
-
-let map = ModuleMap::new(generator, project, modules, groups)
-    .with_dependency_graph(graph);
+    .with_framework(FrameworkInfo::new("tokio", "async runtime"))
+    .with_build_tool("cargo");
 ```
 
 ---
 
 ## Version Compatibility
 
-Schema uses [SemVer](https://semver.org/). The `SchemaRegistry` validates major version compatibility:
+Schema uses [SemVer](https://semver.org/). Major version must match:
 
 ```rust
 use modmap::{SchemaRegistry, SchemaError};
 
 let registry = SchemaRegistry::new();
-
-// Current version
-println!("Schema version: {}", registry.version());  // 1.x.x
-
-// Load and validate
-match registry.load_module_map(&json) {
-    Ok(map) => println!("Loaded: {}", map.project.name),
-    Err(SchemaError::IncompatibleVersion { found, minimum }) => {
-        eprintln!("Version {found} incompatible, requires {minimum}");
+match registry.load(&json) {
+    Ok(manifest) => println!("Loaded: {}", manifest.project.project.name),
+    Err(SchemaError::IncompatibleVersion { found, required_major }) => {
+        eprintln!("Version {found} incompatible, requires major {required_major}");
     }
     Err(e) => eprintln!("Error: {e}"),
 }
 ```
-
----
-
-## JSON Schema
-
-All types derive `schemars::JsonSchema` for JSON Schema generation:
-
-```rust
-use schemars::schema_for;
-use modmap::ModuleMap;
-
-let schema = schema_for!(ModuleMap);
-println!("{}", serde_json::to_string_pretty(&schema)?);
-```
-
----
-
-## Serialization
-
-Optimized serde attributes for clean JSON output:
-
-- `#[serde(default)]` - Default values on deserialization
-- `#[serde(skip_serializing_if = "Vec::is_empty")]` - Omit empty collections
-- `#[serde(flatten)]` - Flatten `ModuleMetrics` into `Module`
 
 ---
 
